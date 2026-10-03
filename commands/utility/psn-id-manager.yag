@@ -1,1 +1,78 @@
+{{ $cmd := "" }}
+{{ if gt (len .CmdArgs) 0 }}
+	{{ $cmd = lower (index .CmdArgs 0) }}
+{{ end }}
 
+{{ $isAdmin := hasPermissions 8 }}
+
+{{ if eq $cmd "add" }}
+	{{ if lt (len .CmdArgs) 2 }}
+		❌ **Error:** Please provide a PSN ID!
+		*Usage:* `!psn add <Your_PSN_ID>` or `!psn add @User <PSN_ID>` (Admins)
+	{{ else }}
+		{{ $targetUser := .User }}
+		{{ $psnID := "" }}
+		{{ $valid := true }}
+
+		{{ if .Message.Mentions }}
+			{{ if not $isAdmin }}
+				❌ **Error:** You do not have permission to set PSN IDs for other users!
+				{{ $valid = false }}
+			{{ else if lt (len .CmdArgs) 3 }}
+				❌ **Error:** Please specify the PSN ID after mentioning the user!
+				*Usage:* `!psn add @User <PSN_ID>`
+				{{ $valid = false }}
+			{{ else }}
+				{{ $targetUser = index .Message.Mentions 0 }} 				{{$psnID = joinStr " " (slice .CmdArgs 2) }}
+			{{ end }}
+		{{ else }}
+			{{ $psnID = joinStr " " (slice .CmdArgs 1) }}
+		{{ end }}
+
+		{{ if $valid }}
+			{{ dbSet $targetUser.ID "psn_id" $psnID }}
+			✅ Saved PSN ID (**{{ $psnID }}**) for {{$targetUser.Mention }}!
+		{{ end }}
+	{{ end }}
+
+{{ else if or (eq $cmd "remove") (eq $cmd "del") }}
+	{{ if .Message.Mentions }}
+		{{ if $isAdmin }}
+			{{ $targetUser := index .Message.Mentions 0 }} 			{{ dbDel$targetUser.ID "psn_id" }}
+			🗑️ PSN ID for {{ $targetUser.Mention }} has been removed.
+		{{ else }}
+			❌ **Error:** You do not have permission to remove PSN IDs for other users!
+		{{ end }}
+	{{ else }}
+		{{ dbDel .User.ID "psn_id" }}
+		🗑️ Your PSN ID has been removed from the list, {{ .User.Mention }}.
+	{{ end }}
+
+{{ else if eq $cmd "" }}
+	{{ $entries := dbTopEntries "psn_id" 100 0 }}
+	{{ if not $entries }}
+		ℹ️ No PSN IDs registered yet. Type `!psn add <ID>` to add yours!
+	{{ else }}
+		{{ $desc := "" }}
+		{{ range $entries }}
+			{{ $desc = print$desc "• <@" .UserID "> → **" .Value "**\n" }}
+		{{ end }}
+
+		{{ $embed := cembed
+			"title" "🎮 PlayStation Network IDs"
+			"color" 0x003791
+			"description" $desc
+			"footer" (sdict "text" "Add yours using: !psn add <ID>")
+		}}
+		{{ sendMessage nil $embed }}
+	{{ end }}
+
+{{ else }}
+	❌ Unknown option.
+	*Available commands:*
+	• `!psn` — View the list
+	• `!psn add <ID>` — Add or update your ID
+	• `!psn add @User <ID>` — (Admin) Set another user's ID
+	• `!psn remove` — Remove your ID from the list
+	• `!psn remove @User` — (Admin) Remove another user's ID
+{{ end }}
