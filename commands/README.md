@@ -9,6 +9,6 @@ Commands are organized by category.
 - `moderation` — Moderation and server management
 - `utility` — Useful server utilities
 - `fun` — Fun and entertainment
-- `rpg` — RPG systems and mechanics
+- `games` — Games, mini-games and game systems
 
 Only commands merged into the `main` branch are considered approved community commands.
