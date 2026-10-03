@@ -1,3 +1,0 @@
-{{/* Simple test command */}}
-
-{{sendMessage nil "👋 Hello from YAGPDB Community!"}}
