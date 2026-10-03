@@ -35,7 +35,7 @@ Example:
 
 ```text
 !example
-
+```
 ## Testing
 Explain how you tested the command.
 
