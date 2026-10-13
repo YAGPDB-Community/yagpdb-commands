@@ -1,0 +1,95 @@
+{{if lt (len .Args) 2}}
+{{sendMessage nil (cembed
+"title" "🪨 Rock • 📄 Paper • ✂️ Scissors"
+"description" "Usage:\n!rps rock\n!rps paper\n!rps scissors"
+"color" 16753920
+)}}
+{{return}}
+{{end}}
+
+{{$choice := lower (index .Args 1)}}
+
+{{if not (or (eq $choice "rock") (eq $choice "paper") (eq $choice "scissors"))}}
+{{sendMessage nil (cembed
+"title" "❌ Incorrect Option"
+"description" "Choose only:\n🪨 rock\n📄 paper\n✂️ scissors"
+"color" 15158332
+)}}
+{{return}}
+{{end}}
+
+{{$moves := cslice "rock" "paper" "scissors"}}
+{{$bot := index $moves (randInt 0 3)}}
+
+{{$playerDisplay := $choice}}
+{{$botDisplay := $bot}}
+
+{{if eq $choice "rock"}}{{$playerDisplay = "🪨 Rock"}}{{end}}
+{{if eq $choice "paper"}}{{$playerDisplay = "📄 Paper"}}{{end}}
+{{if eq $choice "scissors"}}{{$playerDisplay = "✂️ Scissors"}}{{end}}
+
+{{if eq $bot "rock"}}{{$botDisplay = "🪨 Rock"}}{{end}}
+{{if eq $bot "paper"}}{{$botDisplay = "📄 Paper"}}{{end}}
+{{if eq $bot "scissors"}}{{$botDisplay = "✂️ Scissors"}}{{end}}
+
+{{$result := ""}}
+{{$color := 16776960}}
+{{$message := ""}}
+
+{{if eq $choice $bot}}
+    {{$result = "🤝 It's a Tie!"}}
+    {{$color = 16776960}}
+    {{$message = "Both players chose the same move!"}}
+
+{{else if and (eq $choice "rock") (eq $bot "scissors")}}
+    {{$result = "🏆 You Won!"}}
+    {{$color = 3066993}}
+    {{$message = "Rock crushes Scissors!"}}
+
+{{else if and (eq $choice "paper") (eq $bot "rock")}}
+    {{$result = "🏆 You Won!"}}
+    {{$color = 3066993}}
+    {{$message = "Paper covers Rock!"}}
+
+{{else if and (eq $choice "scissors") (eq $bot "paper")}}
+    {{$result = "🏆 You Won!"}}
+    {{$color = 3066993}}
+    {{$message = "Scissors cut Paper!"}}
+
+{{else if and (eq $choice "rock") (eq $bot "paper")}}
+    {{$result = "💀 You Lost!"}}
+    {{$color = 15158332}}
+    {{$message = "Paper covers Rock!"}}
+
+{{else if and (eq $choice "paper") (eq $bot "scissors")}}
+    {{$result = "💀 You Lost!"}}
+    {{$color = 15158332}}
+    {{$message = "Scissors cut Paper!"}}
+
+{{else}}
+    {{$result = "💀 You Lost!"}}
+    {{$color = 15158332}}
+    {{$message = "Rock crushes Scissors!"}}
+{{end}}
+
+{{sendMessage nil (cembed
+    "title" "🎮 Rock • Paper • Scissors"
+
+    "description" (print
+"### 👤 You\n"
+$playerDisplay
+"\n\n### 🤖 Bot\n"
+$botDisplay
+"\n\n━━━━━━━━━━━━━━━━━━\n\n# "
+$result
+"\n\n> "
+$message)
+
+    "color" $color
+
+    "footer" (sdict
+        "text" "Play again with !rps start"
+    )
+
+    "timestamp" currentTime
+)}}
