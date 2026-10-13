@@ -1,0 +1,64 @@
+{{/* ===== CONFIG ROLES & SETTINGS ===== */}}
+{{$gracePeriod := 172800}}
+
+{{$allDailyRoles := cslice
+1536371449269321789 1536371519503208478 1536371582359044096
+1536371642597638175 1536371718938173480 1536371965319717024
+1536372060899774536 1536372179330142229 1536372240172720229
+1536372298951692338 1536372361857728563 1536372422381543595
+1536372496444424264 1536372555835899945 1536372613843255346
+1536372671363682314 1536372736321126412 1536372796936949841
+1536372856886272010 1536372932480081990}}
+
+{{/* ===== SCAN DATABASE FOR EXPIRED USERS ===== */}}
+{{$expiredEntries := dbTopEntries "gc_daily_last" 20 0}}
+{{$expiredUsers := cslice}}
+{{$mentions := ""}}
+
+{{range $expiredEntries}}
+    {{$userID := .UserID}}
+    {{$lastClaimTime := .Value.Unix}}
+    {{$timeSinceLast := sub currentTime.Unix $lastClaimTime}}
+
+    {{/* Αν πέρασαν πάνω από 48 ώρες */}}
+    {{if gt $timeSinceLast $gracePeriod}}
+        {{$member := getMember $userID}}
+        {{if $member}}
+            {{/* Αφαίρεση όλων των Daily Roles με takeRoleID */}}
+            {{range $allDailyRoles}}
+                {{$rID := toInt .}}
+                {{if targetHasRoleID $userID $rID}}
+                    {{takeRoleID $userID $rID}}
+                {{end}}
+            {{end}}
+
+            {{/* Προσθήκη στη λίστα ειδοποίησης */}}
+            {{$mentions = joinStr " " $mentions (print "<@" $userID ">")}}
+            {{$expiredUsers = $expiredUsers.Append $userID}}
+        {{end}}
+
+        {{/* Reset των δεδομένων στη βάση */}}
+        {{dbDel $userID "gc_daily_role"}}
+        {{dbDel $userID "gc_daily_last"}}
+        {{dbSet $userID "gc_daily_pity" 0}}
+        {{dbSet $userID "gc_daily_streak" 0}}
+    {{end}}
+{{end}}
+
+{{/* ===== SEND A SINGLE CONSOLIDATED MESSAGE ===== */}}
+{{if gt (len $expiredUsers) 0}}
+    {{sendMessage nil (complexMessage
+        "content" $mentions
+        "embed" (cembed
+            "title" "⌛ Daily Streak Expired"
+            "description" (joinStr "" 
+                "⏳ **48 hours have passed since your last Daily claim!**\n\n"
+                "🏅 Your **Daily Roles** have been automatically removed.\n"
+                "🔥 Your **Daily Streaks** & Pity have been reset to 0.\n\n"
+                "🎮 Use **!daily** now to claim a new role and restart your streak!"
+            )
+            "color" 15158332
+            "footer" (sdict "text" "AnimeForce Subs Daily System")
+        )
+    )}}
+{{end}}
