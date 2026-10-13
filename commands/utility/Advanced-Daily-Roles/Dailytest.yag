@@ -1,0 +1,83 @@
+{{/* ===== ADMIN CHECK ===== */}}
+
+{{if not (hasPermissions 8)}}
+
+Δεν έχεις permission να χρησιμοποιήσεις αυτό το command.
+
+{{return}}
+
+{{end}}
+
+ 
+
+{{$key := "gc_daily_test_mode"}}
+
+{{$state := dbGet .User.ID $key}}
+
+ 
+
+{{if $state}}
+
+ 
+
+{{/* ===== RESUME NORMAL MODE ===== */}}
+
+{{dbDel .User.ID $key}}
+
+{{dbDel .User.ID "gc_daily_cooldown"}}
+
+ 
+
+{{sendMessage nil (complexMessage
+
+"content" .User.Mention
+
+"embed" (cembed
+
+"title" "▶️ Daily Test Mode"
+
+"description" "Daily Test Mode is now **OFF**.\n\nThe normal **24-hour cooldown** is active again.\n\n🎮 Your next **!daily** will start a fresh cooldown."
+
+"color" 3066993
+
+"footer" (sdict "text" "Anime Force Subs Daily System")
+
+)
+
+)}}
+
+ 
+
+{{else}}
+
+ 
+
+{{/* ===== PAUSE / TEST MODE ===== */}}
+
+{{dbSet .User.ID $key true}}
+
+{{dbDel .User.ID "gc_daily_cooldown"}}
+
+ 
+
+{{sendMessage nil (complexMessage
+
+"content" .User.Mention
+
+"embed" (cembed
+
+"title" "⏸️ Daily Test Mode"
+
+"description" "Daily Test Mode is now **ON**.\n\n🎲 You can now use **!daily** repeatedly without waiting for the cooldown.\n\n🧪 Perfect for testing rewards, Trolls, rarities and role changes.\n\n▶️ Use **!dailytest** again to turn Test Mode OFF."
+
+"color" 16753920
+
+"footer" (sdict "text" "Anime Force Subs Daily System")
+
+)
+
+)}}
+
+ 
+
+{{end}}
