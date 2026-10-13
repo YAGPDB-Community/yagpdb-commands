@@ -1,0 +1,495 @@
+{{/*
+================================================
+ Guess The Number
+
+ Version: 1.0.0
+
+ Created by: Ethelior
+
+ Description:
+ A complete Guess The Number mini-game
+ for YAGPDB featuring random difficulty,
+ attempts, interactive embeds, input
+ validation, help & quit commands,
+ and guess history.
+
+ Features:
+ • Random Difficulty System
+ • Higher / Lower Hints
+ • Guess History
+ • Help Command
+ • Quit Command
+ • Professional Discord Embeds
+
+ License:
+ MIT License
+
+ Repository:
+ https://github.com/Ethelior/yagpdb-guess-the-number
+================================================
+*/}}
+
+{{/* ---------- CONFIG ---------- */}}
+
+{{$config := sdict
+    "version" "1.0.0"
+    "gameTime" 1800
+    "easyChance" 50
+    "mediumChance" 35
+    "hardChance" 15
+    "infoColor" 3447003
+    "successColor" 5763719
+    "errorColor" 15158332
+    "hintColor" 16776960
+}}
+
+{{/* ---------- DATABASE KEYS ---------- */}}
+
+{{$numberKey := print "guess_number_" .User.ID}}
+{{$triesKey := print "guess_tries_" .User.ID}}
+{{$maxKey := print "guess_max_" .User.ID}}
+{{$difficultyKey := print "guess_difficulty_" .User.ID}}
+{{$historyKey := print "guess_history_" .User.ID}}
+
+{{/* ---------- NO ARGUMENT ---------- */}}
+
+{{if not .CmdArgs}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❓ Guess The Number"
+"description" (joinStr ""
+"No command.\n\n"
+
+"🎮 Start a new game:\n"
+"`!guess start`\n\n"
+
+"🆘 Check the commands:\n"
+"`!guess help`"
+)
+"color" $config.infoColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{$arg := lower (index .CmdArgs 0)}}
+
+
+{{/* ---------- HELP ---------- */}}
+
+{{if eq $arg "help"}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "🎮 Guess The Number - Help"
+"description" (joinStr ""
+"🎯 **How to play:**\n\n"
+"1️⃣ Start a game:\n"
+"`!guess start`\n\n"
+"2️⃣ Guess a number:\n"
+"`!guess 42`\n\n"
+
+"🎲 **Difficulty:**\n"
+"🟢 Easy: 1-50\n"
+"🟡 Medium: 1-100\n"
+"🔴 Hard: 1-250\n\n"
+
+"❤️ Each difficulty has different attempts.\n"
+"📈 The game will tell you if the number is higher or lower.\n\n"
+
+"⏳ Game duration: **30 minutes**"
+)
+"color" $config.infoColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{return}}
+
+{{end}}
+
+
+{{/* ---------- QUIT ---------- */}}
+
+{{if eq $arg "quit"}}
+
+{{if dbGet 0 $numberKey}}
+
+{{dbDel 0 $numberKey}}
+{{dbDel 0 $triesKey}}
+{{dbDel 0 $maxKey}}
+{{dbDel 0 $difficultyKey}}
+{{dbDel 0 $historyKey}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "🛑 Game Cancelled"
+"description" (joinStr ""
+"Your game was cancelled.\n\n"
+"You can start a new game with:\n"
+"`!guess start`"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❌ No Active Game"
+"description" "You don't have an active game to cancel."
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{end}}
+
+{{return}}
+
+{{end}}
+
+{{/* ---------- START ---------- */}}
+
+{{if eq $arg "start"}}
+
+    {{if dbGet 0 $numberKey}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "⚠️ Active Game Found"
+"description" (joinStr ""
+"You already have an active game!\n\n"
+"🎯 Continue to guess with:\n"
+"`!guess <number>`\n\n"
+"or cancel with:\n"
+"`!guess quit`"
+)
+"color" $config.hintColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+        {{$roll := randInt 1 101}}
+
+        {{$difficulty := "🟡 Medium"}}
+        {{$max := 100}}
+        {{$tries := 10}}
+
+        {{if le $roll $config.easyChance}}
+
+            {{$difficulty = "🟢 Easy"}}
+            {{$max = 50}}
+            {{$tries = 8}}
+
+        {{else if le $roll (add $config.easyChance $config.mediumChance)}}
+
+            {{$difficulty = "🟡 Medium"}}
+            {{$max = 100}}
+            {{$tries = 10}}
+
+        {{else}}
+
+            {{$difficulty = "🔴 Hard"}}
+            {{$max = 250}}
+            {{$tries = 12}}
+
+        {{end}}
+
+        {{$secret := add (randInt $max) 1}}
+
+        {{dbSetExpire 0 $numberKey $secret $config.gameTime}}
+        {{dbSetExpire 0 $triesKey $tries $config.gameTime}}
+        {{dbSetExpire 0 $maxKey $max $config.gameTime}}
+        {{dbSetExpire 0 $difficultyKey $difficulty $config.gameTime}}
+        {{dbSetExpire 0 $historyKey "" $config.gameTime}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "🎮 Guess The Number"
+"description" (joinStr ""
+"The game started!\n\n"
+
+"🎲 Difficulty:\n"
+"**"
+$difficulty
+"**\n\n"
+
+"🔢 Number Range:\n"
+"**1 - "
+$max
+"**\n\n"
+
+"❤️ Attempts:\n"
+"**"
+$tries
+"**\n\n"
+
+"⏳ Time Limit:\n"
+"**30 minutes**\n\n"
+
+"🎯 Type:\n"
+"`!guess <number>`"
+)
+"color" $config.infoColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+    {{end}}
+
+{{/* ---------- GUESS NUMBER ---------- */}}
+
+{{else}}
+
+{{$game := dbGet 0 $numberKey}}
+
+{{if not $game}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❌ No Active Game"
+"description" (joinStr ""
+"There is no active game right now.\n\n"
+"🎮 To start a new game, type:\n"
+"`!guess start`"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{$guess := toInt $arg}}
+
+{{if not (reFind `^[0-9]+$` $arg)}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❌ Invalid Input"
+"description" (joinStr ""
+"You have to right a **number**.\n\n"
+"Example:\n"
+"`!guess 42`"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{return}}
+
+{{end}}
+
+{{$maxDB := dbGet 0 $maxKey}}
+{{$maxNumber := toInt $maxDB.Value}}
+
+{{if gt $guess $maxNumber}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❌ Number Out Of Range"
+"description" (joinStr ""
+"The number you typed is out of range.\n\n"
+"🔢 Right numbers:\n"
+"**1 - "
+$maxNumber
+"**\n\n"
+"Example:\n"
+"`!guess 25`"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else if lt $guess 1}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "❌ Invalid Number"
+"description" (joinStr ""
+"The number must be between:\n\n"
+"🔢 **1 - "
+$maxNumber
+"**"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{$secret := toInt $game.Value}}
+
+{{$triesDB := dbGet 0 $triesKey}}
+{{$tries := toInt $triesDB.Value}}
+
+{{$tries = sub $tries 1}}
+{{$historyDB := dbGet 0 $historyKey}}
+
+{{$history := ""}}
+
+{{if $historyDB}}
+    {{$history = $historyDB.Value}}
+{{end}}
+
+{{if lt $guess $secret}}
+
+{{$history = joinStr "\n" $history (print "• " $guess " ⬆️")}}
+
+{{else if gt $guess $secret}}
+
+{{$history = joinStr "\n" $history (print "• " $guess " ⬇️")}}
+
+{{end}}
+
+{{dbSetExpire 0 $historyKey $history $config.gameTime}}
+
+{{if eq $guess $secret}}
+
+{{dbDel 0 $numberKey}}
+{{dbDel 0 $triesKey}}
+{{dbDel 0 $maxKey}}
+{{dbDel 0 $difficultyKey}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "🎉 You Win!"
+"description" (joinStr ""
+"🏆 Congrats!\n\n"
+"You found the right number:\n\n"
+"🔢 **"
+$secret
+"**"
+)
+"color" $config.successColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{if le $tries 0}}
+
+{{dbDel 0 $numberKey}}
+{{dbDel 0 $triesKey}}
+{{dbDel 0 $maxKey}}
+{{dbDel 0 $difficultyKey}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "💀 Game Over"
+"description" (joinStr ""
+"😢 You didn't find the correct number.\n\n"
+"🔢 The correct number was:\n\n"
+"**"
+$secret
+"**\n\n"
+"📝 Previous Guesses:\n"
+$history
+"\n\n"
+"🎮 You can start a new game with:\n"
+"`!guess start`"
+)
+"color" $config.errorColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{dbSetExpire 0 $triesKey $tries $config.gameTime}}
+
+
+{{if lt $guess $secret}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "📈 Too Low!"
+"description" (joinStr ""
+"The number you typed is **smaller**.\n\n"
+"⬆️ Try a bigger number!\n\n"
+"❤️ Tries:\n"
+"**"
+$tries
+"**\n\n"
+
+"📝 Previous Guesses:\n"
+$history
+)
+"color" $config.hintColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{else}}
+
+{{sendMessage nil (complexMessage
+"embed" (cembed
+"title" "📉 Too High!"
+"description" (joinStr ""
+"The number you typed is **bigger**.\n\n"
+"⬇️ Try a smaller number!\n\n"
+"❤️ Tries:\n"
+"**"
+$tries
+"**\n\n"
+
+"📝 Previous Guesses:\n"
+$history
+)
+"color" $config.hintColor
+"footer" (sdict
+"text" (joinStr "" "Guess The Number v" $config.version)
+)
+)
+)}}
+
+{{end}}
+
+{{end}}
+
+{{end}}
+
+{{end}}
+
+{{end}}
+
+{{end}}
+
+{{end}}
