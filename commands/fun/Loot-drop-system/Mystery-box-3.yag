@@ -1,16 +1,14 @@
-Trigger Type: None (Executed via scheduleUniqueCC)
-
 {{/* --- GameCentral Animation Steps & Result (CC #40) --- */}}
 
-{{ $adminID := 1349194216169013248 }} {{/* <- ΒΑΛΕ ΕΔΩ ΤΟ DISCORD USER ID ΣΟΥ */}}
-{{ $staffChannelID := 1379145901318344844 }} {{$vipRoleID := 1394846017396015181 }}
+{{ $adminID := 1349194216169013248 }}
+{{ $staffChannelID := 1559487605995995287 }} {{$vipRoleID := 1394846017396015181 }}
 {{ $removeVIPCCID := 39 }} {{$animCCID := 40 }}
 
 {{ $data := .ExecData }}
 {{ if $data }}
 
-{{ $userMention := printf "<@\%d>" $data.userID }}
-{{ $step := toInt$data.step }}
+{{ $userMention := printf "<@%d>" $data.userID }}
+{{ $step := toInt $data.step }}
 
 {{ if eq $step 1 }} 	{{$embed20 := cembed
 		"title" "🎮 GameCentral Vault Opening..."
@@ -20,7 +18,7 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		"timestamp" currentTime
 	}}
 	{{ editMessage $data.channelID $data.msgID (complexMessage "content" $userMention "embed" $embed20) }}
-	{{ execCC $animCCID nil 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 2) }}
+	{{ execCC $animCCID $data.channelID 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 2) }}
 
 {{ else if eq $step 2 }} 	{{$embed40 := cembed
 		"title" "🎮 GameCentral Vault Opening..."
@@ -30,7 +28,7 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		"timestamp" currentTime
 	}}
 	{{ editMessage $data.channelID $data.msgID (complexMessage "content" $userMention "embed" $embed40) }}
-	{{ execCC $animCCID nil 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 3) }}
+	{{ execCC $animCCID $data.channelID 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 3) }}
 
 {{ else if eq $step 3 }} 	{{$embed60 := cembed
 		"title" "🎮 GameCentral Vault Opening..."
@@ -40,7 +38,7 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		"timestamp" currentTime
 	}}
 	{{ editMessage $data.channelID $data.msgID (complexMessage "content" $userMention "embed" $embed60) }}
-	{{ execCC $animCCID nil 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 4) }}
+	{{ execCC $animCCID $data.channelID 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 4) }}
 
 {{ else if eq $step 4 }} 	{{$embed80 := cembed
 		"title" "🎮 GameCentral Vault Opening..."
@@ -50,7 +48,7 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		"timestamp" currentTime
 	}}
 	{{ editMessage $data.channelID $data.msgID (complexMessage "content" $userMention "embed" $embed80) }}
-	{{ execCC $animCCID nil 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 5) }}
+	{{ execCC $animCCID $data.channelID 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 5) }}
 
 {{ else if eq $step 5 }} 	{{$embed100 := cembed
 		"title" "🎮 GameCentral Vault Opening..."
@@ -60,7 +58,7 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		"timestamp" currentTime
 	}}
 	{{ editMessage $data.channelID $data.msgID (complexMessage "content" $userMention "embed" $embed100) }}
-	{{ execCC $animCCID nil 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 6) }}
+	{{ execCC $animCCID $data.channelID 2 (sdict "msgID" $data.msgID "userID" $data.userID "channelID" $data.channelID "step" 6) }}
 
 {{ else if eq $step 6 }}
 	{{ $roll := randInt 1 101 }} 	{{$title := "" }}
@@ -111,14 +109,15 @@ Trigger Type: None (Executed via scheduleUniqueCC)
 		{{ end }}
 	{{ end }}
 
-	{{ if and $isWin$isNotifyEnabled }}
+	{{ if and $isWin $isNotifyEnabled }}
+		{{ $staffDesc := printf "👤 **Gamer:** <@%d> (`%d`)\n📍 **Channel:** <#%d>\n🎁 **Drop:** %s" $data.userID $data.userID $data.channelID $rewardName }}
 		{{ $staffEmbed := cembed
 			"title" "🎮 GameCentral Loot Alert!"
-			"description" (printf "👤 **Gamer:** %s (`%d`)\n📍 **Channel:** <#%d>\n🎁 **Drop:** %s" $userMention$data.userID $data.channelID $rewardName)
+			"description" $staffDesc
 			"color" $color
 			"timestamp" currentTime
 		}}
-		{{ $adminTag := printf "<@\%d>" $adminID }}
+		{{ $adminTag := printf "<@%d>" $adminID }}
 		{{ sendMessage $staffChannelID (complexMessage "content" $adminTag "embed" $staffEmbed "allowed_mentions" (sdict "parse" (cslice "users"))) }}
 	{{ end }}
 
