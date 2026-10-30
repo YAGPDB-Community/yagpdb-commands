@@ -92,7 +92,7 @@
 
 {{$availableUnix := add currentTime.Unix $diff}}
 {{$next := (newDate 1970 1 1 0 0 0).Add (mult $availableUnix 1e9)}}
-{{$nextFormatted := ($next.Add 10800e9).Format "02/01/2006 στις 15:04:05"}}
+{{$nextFormatted := ($next.Add 7200e9).Format "02/01/2006 στις 15:04:05"}}
 
 {{sendMessage nil (complexMessage
 "content" .User.Mention
