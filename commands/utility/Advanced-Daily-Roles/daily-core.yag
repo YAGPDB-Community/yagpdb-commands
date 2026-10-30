@@ -1,0 +1,245 @@
+{{/* ===== EXEC DATA LOAD ===== */}}
+{{$c := .ExecData}}
+
+{{/* ===== INITIALIZATION ===== */}}
+{{$common := $c.common}}
+{{$rare := $c.rare}}
+{{$epic := $c.epic}}
+{{$legendary := $c.legendary}}
+
+{{/* ===== CONSOLIDATED DAILY ROLES LIST ===== */}}
+{{$allDailyRoles := cslice}}
+{{$allDailyRoles = $allDailyRoles.AppendSlice $common}}
+{{$allDailyRoles = $allDailyRoles.AppendSlice $rare}}
+{{$allDailyRoles = $allDailyRoles.AppendSlice $epic}}
+{{$allDailyRoles = $allDailyRoles.AppendSlice $legendary}}
+
+{{/* ===== TROLL MESSAGES ===== */}}
+{{$troll := cslice
+"💀 The Daily Role delivery guy saw your name and called in sick."
+"🎁 You opened the Daily box... Congratulations! It contained absolutely nothing."
+"🤡 The system rolled your reward and somehow rolled a potato."
+"🐌 Your Daily Role is currently stuck in traffic. Traffic is made of snails."
+"🎰 Critical Miss! Even the RNG is disappointed."
+"🦝 A raccoon stole your Daily Role. We have no suspects. We have no leads. We have a raccoon."
+"👻 Your Daily Role existed for 0.3 seconds and then chose freedom."
+"💣 BOOM! You activated the Daily Trap Card."
+"🧙 The Daily Wizard has decided you are not worthy today."
+}}
+
+{{/* ===== COOLDOWN & GRACE PERIOD CHECK ===== */}}
+{{$lastClaimDB := dbGet .User.ID $c.lastClaimKey}}
+{{$streakDB := dbGet .User.ID $c.streakKey}}
+{{$pityDB := dbGet .User.ID $c.pityKey}}
+{{$testMode := dbGet .User.ID "gc_daily_test_mode"}}
+
+{{$streak := 1}}
+{{$pity := 0}}
+{{if $pityDB}}{{$pity = toInt $pityDB.Value}}{{end}}
+
+{{$inCooldown := false}}
+{{$diff := 0}}
+
+{{if and $lastClaimDB (not $testMode)}}
+    {{$lastUnix := toInt $lastClaimDB.Value}}
+    {{$timePassed := sub currentTime.Unix $lastUnix}}
+    
+    {{/* Έλεγχος Cooldown (24 ώρες = 86400s) */}}
+    {{if lt $timePassed $c.cooldown}}
+        {{$inCooldown = true}}
+        {{$diff = sub $c.cooldown $timePassed}}
+    {{else}}
+        {{/* Έλεγχος Grace Period (48 ώρες = 172800s) */}}
+        {{if gt $timePassed $c.gracePeriod}}
+            {{/* Υπέρβαση 48ώρου: Χάνει ρόλους και streak */}}
+            {{range $allDailyRoles}}
+                {{$rID := toInt .}}
+                {{if hasRoleID $rID}}{{removeRoleID $rID}}{{end}}
+            {{end}}
+            {{dbDel .User.ID $c.dailyRoleKey}}
+            {{dbSet .User.ID $c.pityKey 0}}
+            {{$streak = 1}}
+            {{$pity = 0}}
+
+            {{sendMessage nil (complexMessage
+            "content" .User.Mention
+            "embed" (cembed
+            "title" $c.titleExpired
+            "description" "⏳ You took too long to claim your Daily (>48 hours)!\n\n🔥 Your **Daily Streak** was reset to 1.\n🏅 You lost your previous **Daily Role**.\n\n🎲 Rolling for a fresh start..."
+            "color" $c.trollColor
+            "footer" (sdict "text" $c.footerText)
+            ))}}
+        {{else}}
+            {{/* Εντός grace period: Συνεχίζει το streak */}}
+            {{if $streakDB}}
+                {{$streak = add (toInt $streakDB.Value) 1}}
+            {{end}}
+        {{end}}
+    {{end}}
+{{else}}
+    {{if $streakDB}}
+        {{$streak = toInt $streakDB.Value}}
+    {{else}}
+        {{$streak = 1}}
+    {{end}}
+{{end}}
+
+{{if $inCooldown}}
+
+{{$h := toInt (div $diff 3600)}}
+{{$m := toInt (div (mod $diff 3600) 60)}}
+{{$sec := toInt (mod $diff 60)}}
+
+{{$availableUnix := add currentTime.Unix $diff}}
+{{$next := (newDate 1970 1 1 0 0 0).Add (mult $availableUnix 1e9)}}
+{{$nextFormatted := ($next.Add 10800e9).Format "02/01/2006 στις 15:04:05"}}
+
+{{sendMessage nil (complexMessage
+"content" .User.Mention
+"embed" (cembed
+"title" $c.titleCooldown
+"description" (joinStr ""
+"🎁 You have already claimed today's **Daily Role**.\n\n"
+"⏳ **Time remaining:**\n"
+"🕒 **" $h "** hours\n"
+"🕑 **" $m "** minutes\n"
+"🕐 **" $sec "** seconds\n\n"
+"📅 **Available again:**\n**" $nextFormatted "**\n\n"
+"🎮 Use **!daily** when the cooldown expires."
+)
+"color" $c.cooldownColor
+"footer" (sdict "text" $c.footerText)
+))}}
+{{else}}
+
+{{$pb := div $pity 5}}
+{{if gt $pb $c.maxPityBonus}}{{$pb = $c.maxPityBonus}}{{end}}
+
+{{/* ===== USER DATA & WEEKEND BONUS ===== */}}
+{{$bonus := 0}}
+{{$day := currentTime.Weekday}}
+{{if or (eq $day 5) (eq $day 6) (eq $day 0)}}{{$bonus = $c.weekendBonus}}{{end}}
+
+{{/* ===== PREVIOUS DAILY ROLE (LIVE DISCORD CHECK) ===== */}}
+{{$previousRoleID := 0}}
+{{$oldRole := "No previous Daily Role"}}
+
+{{range $allDailyRoles}}
+{{$rID := toInt .}}
+{{if hasRoleID $rID}}
+    {{$previousRoleID = $rID}}
+    {{$r := getRole $rID}}
+    {{if $r}}{{$oldRole = $r.Name}}{{end}}
+{{end}}
+{{end}}
+
+{{/* ===== RARITY ROLL ===== */}}
+{{$chance := randInt 1 (sub 101 $bonus)}}
+{{$trollRoll := randInt 1 101}}
+{{$pool := $common}}
+{{$rarity := "🟢 Common"}}
+
+{{if le $trollRoll $c.trollChance}}
+{{$rarity = "💀 Troll"}}
+{{else if le $chance $c.commonChance}}
+{{$pool = $common}}
+{{$rarity = "🟢 Common"}}
+{{else if le $chance $c.rareChance}}
+{{$pool = $rare}}
+{{$rarity = "🔵 Rare"}}
+{{else if le $chance (sub $c.epicChance $pb)}}
+{{$pool = $epic}}
+{{$rarity = "🟣 Epic"}}
+{{dbSet .User.ID $c.pityKey 0}}
+{{else}}
+{{$pool = $legendary}}
+{{$rarity = "🟡 Legendary"}}
+{{dbSet .User.ID $c.pityKey 0}}
+{{end}}
+
+{{/* ===== TROLL EVENT ===== */}}
+{{if eq $rarity "💀 Troll"}}
+
+{{range $allDailyRoles}}
+{{$rID := toInt .}}
+{{if hasRoleID $rID}}{{removeRoleID $rID}}{{end}}
+{{end}}
+
+{{dbDel .User.ID $c.dailyRoleKey}}
+
+{{/* Αποθήκευση δεδομένων */}}
+{{dbSet .User.ID $c.lastClaimKey currentTime.Unix}}
+{{dbSet .User.ID $c.streakKey $streak}}
+
+{{sendMessage nil (complexMessage
+"content" .User.Mention
+"embed" (cembed
+"title" $c.titleTroll
+"description" (joinStr ""
+(index $troll (randInt 0 (len $troll)))
+"\n\n🏅 Lost Daily Role:\n**" $oldRole "**"
+"\n\n💀 Better luck next time!")
+"color" $c.trollColor
+"footer" (sdict "text" $c.footerText)
+))}}
+
+{{else}}
+
+{{/* ===== SELECT NEW ROLE ===== */}}
+{{$available := cslice}}
+{{range $pool}}
+{{if ne (str .) (str $previousRoleID)}}
+{{$available = $available.Append .}}
+{{end}}
+{{end}}
+
+{{if eq (len $available) 0}}
+{{$available = $pool}}
+{{end}}
+
+{{$newRole := toInt (index $available (randInt 0 (len $available)))}}
+
+{{range $allDailyRoles}}
+{{$rID := toInt .}}
+{{if and (hasRoleID $rID) (ne $rID $newRole)}}
+{{removeRoleID $rID}}
+{{end}}
+{{end}}
+
+{{if gt $newRole 0}}
+{{if not (hasRoleID $newRole)}}
+{{addRoleID $newRole}}
+{{end}}
+{{dbSet .User.ID $c.dailyRoleKey (str $newRole)}}
+{{end}}
+
+{{$role := getRole $newRole}}
+{{$roleName := "Unknown"}}
+{{if $role}}{{$roleName = $role.Name}}{{end}}
+
+{{if and (ne $rarity "🟣 Epic") (ne $rarity "🟡 Legendary")}}
+{{dbSet .User.ID $c.pityKey (add $pity 1)}}
+{{end}}
+
+{{/* ===== SAVE DATA ===== */}}
+{{dbSet .User.ID $c.lastClaimKey currentTime.Unix}}
+{{dbSet .User.ID $c.streakKey $streak}}
+
+{{$color := $c.successColor}}
+{{if eq $rarity "🟡 Legendary"}}{{$color = $c.legendaryColor}}{{end}}
+
+{{sendMessage nil (complexMessage
+"content" .User.Mention
+"embed" (cembed
+"title" $c.titleReward
+"description" (joinStr ""
+"🎉 Congratulations!\n\n"
+"🏅 You won:\n**" $roleName "**\n\n"
+"🎲 Rarity:\n" $rarity
+"\n\n🔥 Daily Streak: **" $streak "**"
+"\n\n⏰ Come back tomorrow for a new Daily role!")
+"color" $color
+"footer" (sdict "text" $c.footerText)
+))}}
+{{end}}
+{{end}}
